@@ -140,14 +140,12 @@ class SessionForm(messages.Message):
     city = messages.StringField(2)
     name = messages.StringField(3)
     highlights = messages.StringField(4)
-    speaker = messages.StringField(5)
+    speaker = messages.StringField(5, repeated=True)
     duration = messages.StringField(6)
     typeOfSession = messages.StringField(7)
     date = messages.StringField(8)
     startTime = messages.StringField(9)
-    websafeKey = messages.StringField(10)
-    organizerDisplayName = messages.StringField(11)
-    websafeKey = messages.StringField(12)
+    websafeConferenceKey = messages.StringField(10)
 
 
 class SessionForms(messages.Message):
