@@ -568,7 +568,7 @@ class ConferenceApi(remote.Service):
                     setattr(sf, field.name, str(getattr(ses, field.name)))
                 else:
                     setattr(sf, field.name, getattr(ses, field.name))
-            elif field.name == "websafeKey":
+            elif field.name == "websafeConferenceKey":
                 setattr(sf, field.name, ses.key.urlsafe())
         sf.check_initialized()
         return sf
@@ -602,9 +602,9 @@ class ConferenceApi(remote.Service):
             raise endpoints.ForbiddenException(
                 'Only conference organizer can add sessions.')
 
-        # The Session represents what is actually saved to the DataStore.
-        # The SessionForm represents a Session
-
+        # since we use SES_POST_REQUEST, which is a container (combination message)
+        # we need to initiate and return SessionForm, unlike createConference
+        # where request and response are of the same type
         session = self._copySessionToForm(request)
 
         # copy SessionForm/ProtoRPC Message into dict
@@ -613,20 +613,14 @@ class ConferenceApi(remote.Service):
 
         del data['websafeConferenceKey']
 
-        # add default values for those missing (both data model & outbound
-        # Message)
-        for df in SES_DEFAULTS:
-            if data[df] in (None, []):
-                data[df] = SES_DEFAULTS[df]
-                setattr(request, df, SES_DEFAULTS[df])
+        # convert dates from strings to Date objects
+        if data['date']:
+            data['date'] = datetime.strptime(
+                data['date'][:10], "%Y-%m-%d").date()
 
-        # make conference key
-        # conf_key = ndb.Key(urlsafe=request.websafeConferenceKey)
-
-        # generate Profile Key based on user ID and Session
-        # ID based on Profile key get Session key from ID
-        # p_key = ndb.Key(Profile, user_id)
-        c_key = ndb.Key(Conference, user_id)
+        # generate Conference Key based on user ID and Session key from ID
+        # since Conference is ancester of Session
+        c_key = ndb.Key(Conference, request.websafeConferenceKey)
         s_id = Session.allocate_ids(size=1, parent=c_key)[0]
         s_key = ndb.Key(Session, s_id, parent=c_key)
         data['key'] = s_key
@@ -643,6 +637,46 @@ class ConferenceApi(remote.Service):
     def createSession(self, request):
         """Create new session."""
         return self._createSessionObject(request)
+
+
+    @endpoints.method(SES_GET_REQUEST, SessionForms,
+                      path='conference/{websafeConferenceKey}/session',
+                      http_method='GET', name='getConferenceSessions')
+    def getConferenceSessions(self, request):
+        """ Given a conference return all sessions (by websafeConferenceKey)."""
+        # get Conference object from request; bail if not found
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # create ancestor query for all key matches for this conference
+        sessions = Session.query(ancestor=ndb.Key(Conference, request.websafeConferenceKey)).fetch()
+
+        # return set of SessionForm objects per Conference
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
+
+
+    @endpoints.method(SES_GET_REQUEST, SessionForms,
+                      path='getConferenceSessionsByType',
+                      http_method='GET', name='getConferenceSessionsByType')
+    def getConferenceSessionsByType(self, request):
+        """ Given a conference, return all sessions of a specified type (by websafeConferenceKey) """
+        # get Conference object from request
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        if not conf:
+            raise endpointNotFoundException(
+                'No conference found with key: %s' %request.websafeConferenceKey)
+        # create ancestor query for all key matches for the conference
+        sessions = Session.query(ancestor=ndb.Key(Conference, request.websafeConferenceKey))
+        sessions = sessions.filter(Session.typeOfsession==request.typeOfSession).fetch()
+
+        # return set of SessionForm objects
+        return SessionForms(
+            items=[self._copySessionToForm(session) for session in sessions]
+        )
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
