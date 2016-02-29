@@ -709,4 +709,19 @@ class ConferenceApi(remote.Service):
         )
 
 
+# TO DO
+# 1. Explain in a couple of paragraphs your design choices for session and
+# speaker implementation.
+
+# Speaker implementation
+# request type of SPEAKER_GET_REQUEST
+# response type of conference forms
+# builds query object
+# filters query by speaker
+# returns ConferenceForms object which is a copy of each conference returned
+# by the query
+
+# - - - Wishlist objects - - - - - - - - - - - - - - - - -
+
+
 api = endpoints.api_server([ConferenceApi])  # register API
