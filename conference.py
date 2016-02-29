@@ -101,6 +101,11 @@ SES_POST_REQUEST = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey=messages.StringField(1),
 )
+
+SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    speaker=messages.StringField(1),
+)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -671,16 +676,33 @@ class ConferenceApi(remote.Service):
             raise endpointNotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
 
-        # create ancestor query for all key matches for this conference
-        # get query
+        # make a Query object for a kind, filter by ancester
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
 
-        # filter sessions by typeOfSession
+        # apply filter to sessions using typeOfSession
         sessions = sessions.filter(
             Session.typeOfSession == request.typeOfSession).fetch()
 
         # return set of SessionForms objects per Conference
+        return SessionForms(
+            items=[self._copySessionToForm(session)
+                   for session in sessions]
+        )
+
+    @endpoints.method(SPEAKER_GET_REQUEST, SessionForms,
+                      path='getSessionsBySpeaker',
+                      http_method='GET', name='getSessionsBySpeaker')
+    def getSessionsBySpeaker(self, request):
+        """ Given a speaker, return all sessions given by this particular speaker, across all conferences """
+        # make a Query object for a kind
+        sessions = Session.query()
+
+        # filter sessions by speaker
+        sessions = sessions.filter(
+            Session.speaker == request.speaker).fetch()
+
+        # return set of SessionForms objects
         return SessionForms(
             items=[self._copySessionToForm(session)
                    for session in sessions]
