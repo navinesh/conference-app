@@ -734,7 +734,6 @@ class ConferenceApi(remote.Service):
 # returns ConferenceForms object which is a copy of each conference returned
 # by the query
 
-# - - - Wishlist objects - - - - - - - - - - - - - - - - -
 
     def _copyWishlistToForm(self, wish):
         """Copy relevant fields from Wishlist to WishlistForm."""
@@ -777,8 +776,8 @@ class ConferenceApi(remote.Service):
 
         del data['websafeSessionKey']
 
-        # generate Conference Key based on Conference ID and
-        # websafeConferenceKey key
+        # generate Session Key based on Session ID and
+        # websafeSessionKey key
         s_key = ndb.Key(Session, request.websafeSessionKey)
         s_id = Wishlist.allocate_ids(size=1, parent=s_key)[0]
         w_key = ndb.Key(Wishlist, s_id, parent=s_key)
@@ -824,5 +823,28 @@ class ConferenceApi(remote.Service):
                    for wishlist in wishlists]
         )
 
+
+
+    @endpoints.method(WISH_GET_REQUEST, BooleanMessage,
+                      path='wishlist/{websafeSessionKey}',
+                      http_method='DELETE', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
+        """Removes the session from the user’s list of sessions they are interested in attending."""
+        retval = None
+        user = endpoints.get_current_user()
+
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        wssk = request.websafeSessionKey
+        print 'wssk', wssk
+        skey = ndb.Key(urlsafe=wssk).get()
+
+        if not skey:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % wssk)
+        ndb.Key(Wishlist, wssk).delete()
+
+        return BooleanMessage(data=retval)
 
 api = endpoints.api_server([ConferenceApi])  # register API
