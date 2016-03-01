@@ -14,6 +14,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 from datetime import datetime
+from datetime import time
 
 import endpoints
 from protorpc import messages
@@ -38,9 +39,6 @@ from models import TeeShirtSize
 from models import Session
 from models import SessionForm
 from models import SessionForms
-from models import Wishlist
-from models import WishlistForm
-from models import WishlistForms
 
 from utils import getUserId
 
@@ -108,11 +106,6 @@ SES_POST_REQUEST = endpoints.ResourceContainer(
 SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     speaker=messages.StringField(1),
-)
-
-WISH_POST_REQUEST = endpoints.ResourceContainer(
-    WishlistForm,
-    websafeSessionKey=messages.StringField(1),
 )
 
 WISH_GET_REQUEST = endpoints.ResourceContainer(
@@ -455,6 +448,7 @@ class ConferenceApi(remote.Service):
         # check if conf exists given websafeConfKey
         # get conference; check that it exists
         wsck = request.websafeConferenceKey
+
         conf = ndb.Key(urlsafe=wsck).get()
         if not conf:
             raise endpoints.NotFoundException(
@@ -584,6 +578,8 @@ class ConferenceApi(remote.Service):
                 # convert Date to date string; just copy others
                 if field.name.endswith('date'):
                     setattr(sf, field.name, str(getattr(ses, field.name)))
+                elif field.name.endswith('Time'):
+                    setattr(sf, field.name, str(getattr(ses, field.name)))
                 else:
                     setattr(sf, field.name, getattr(ses, field.name))
             elif field.name == "websafeConferenceKey":
@@ -636,6 +632,11 @@ class ConferenceApi(remote.Service):
             data['date'] = datetime.strptime(
                 data['date'][:10], "%Y-%m-%d").date()
 
+        # convert time from strings to time object
+        if data['startTime']:
+            data['startTime'] = datetime.strptime(
+                data['startTime'], "%H:%M").time()
+
         # generate Conference Key based on Conference ID and
         # websafeConferenceKey key
         c_key = ndb.Key(Conference, request.websafeConferenceKey)
@@ -672,7 +673,7 @@ class ConferenceApi(remote.Service):
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey)).fetch()
 
-        # return set of SessionForms objects per Conference
+        # return set of SessionForms objects per session
         return SessionForms(
             items=[self._copySessionToForm(session) for session in sessions]
         )
@@ -697,7 +698,7 @@ class ConferenceApi(remote.Service):
         sessions = sessions.filter(
             Session.typeOfSession == request.typeOfSession).fetch()
 
-        # return set of SessionForms objects per Conference
+        # return set of SessionForms objects per session
         return SessionForms(
             items=[self._copySessionToForm(session)
                    for session in sessions]
@@ -715,7 +716,7 @@ class ConferenceApi(remote.Service):
         sessions = sessions.filter(
             Session.speaker == request.speaker).fetch()
 
-        # return set of SessionForms objects
+        # return set of SessionForm objects per Session
         return SessionForms(
             items=[self._copySessionToForm(session)
                    for session in sessions]
@@ -727,124 +728,88 @@ class ConferenceApi(remote.Service):
 # speaker implementation.
 
 # Speaker implementation
-# request type of SPEAKER_GET_REQUEST
+# request type of SPEAKER_GET_REQUEST (endpoints ResourceContainer)
 # response type of conference forms
 # builds query object
 # filters query by speaker
 # returns ConferenceForms object which is a copy of each conference returned
 # by the query
 
+# - - - Wishlist objects - - - - - - - - - - - - - - - - -
 
-    def _copyWishlistToForm(self, wish):
-        """Copy relevant fields from Wishlist to WishlistForm."""
-        wl = WishlistForm()
-        for field in wl.all_fields():
-            if hasattr(wish, field.name):
-                setattr(wl, field.name, getattr(wish, field.name))
-            elif field.name == "websafeSessionKey":
-                setattr(wl, field.name, wish.key.urlsafe())
-        wl.check_initialized()
-        return wl
+    @ndb.transactional(xg=True)
+    def _wishlistRegistration(self, request, reg=True):
+        """Add or remove selected conference from users wishlist."""
+        retval = None
+        prof = self._getProfileFromUser()  # get user Profile
 
-    def _createWishlistObject(self, request):
-        """Create or update Session object, returning SessionForm/request."""
-        # preload necessary data items
-        user = endpoints.get_current_user()
-
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
-
-        user_id = getUserId(user)
-
-        if not request.websafeSessionKey:
-            raise endpoints.BadRequestException(
-                "Session 'sessionKey' field required")
-
-        skey = ndb.Key(urlsafe=request.websafeSessionKey).get()
-
-        if not skey:
+        # check if session exists given websafeSessionKey
+        # get session; check that it exists
+        wssk = request.websafeSessionKey
+        ses = ndb.Key(urlsafe=wssk).get()
+        if not ses:
             raise endpoints.NotFoundException(
-                'No session found with key: %s' % request.sessionKey)
+                'No session found with key: %s' % wssk)
 
-        # since the request and response are of different type
-        # we need to initiate and return wishlistForm
-        wishlist = self._copyWishlistToForm(request)
+        # register
+        if reg:
+            # check if user already added this session to wishlist otherwise
+            # add
+            if wssk in prof.sessionKeysToAttend:
+                raise ConflictException(
+                    "You have already added this session to your wishlist.")
 
-        # copy SessionForm/ProtoRPC Message into dict
-        data = {field.name: getattr(request, field.name)
-                for field in request.all_fields()}
+            # register user
+            prof.sessionKeysToAttend.append(wssk)
+            retval = True
 
-        del data['websafeSessionKey']
+        # unregister
+        else:
+            # check if session is added to wishlist
+            if wssk in prof.sessionKeysToAttend:
+                # remove session from users' wishlist
+                prof.sessionKeysToAttend.remove(wssk)
+                retval = True
+            else:
+                retval = False
 
-        # generate Session Key based on Session ID and
-        # websafeSessionKey key
-        s_key = ndb.Key(Session, request.websafeSessionKey)
-        s_id = Wishlist.allocate_ids(size=1, parent=s_key)[0]
-        w_key = ndb.Key(Wishlist, s_id, parent=s_key)
-        data['key'] = w_key
-        data['sessionName'] = skey.name
-        data['typeOfSession'] = skey.typeOfSession
-        data['userId'] = user_id
+        # write things back to the datastore & return
+        prof.put()
+        return BooleanMessage(data=retval)
 
-        # create Wishlist & return (modified) WishlistForm
-        Wishlist(**data).put()
-
-        return wishlist
-
-    @endpoints.method(WISH_POST_REQUEST, WishlistForm, path='wishlist',
-                      http_method='POST', name='addSessionToWishlist')
-    def addSessionToWishlist(self, request):
-        """Add session to Wishlist."""
-        return self._createWishlistObject(request)
-
-    @endpoints.method(message_types.VoidMessage, WishlistForms,
-                      path='getSessionsInWishlist',
-                      http_method='GET', name='getSessionsInWishlist')
-    def getSessionsInWishlist(self, request):
-        """Query for all the sessions in a conference that the user is interested in."""
-        # preload necessary data items
-        user = endpoints.get_current_user()
-
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
-
-        user_id = getUserId(user)
-
-        # make a Query object for a kind
-        wishlists = Wishlist.query()
-
-        # filter wishlist by user
-        wishlists = wishlists.filter(
-            Wishlist.userId == user_id).fetch()
-
-        # return set of WishlistForms objects
-        return WishlistForms(
-            items=[self._copyWishlistToForm(wishlist)
-                   for wishlist in wishlists]
-        )
-
-
+    @endpoints.method(WISH_GET_REQUEST, BooleanMessage,
+                      path='wishlist/{websafeSessionKey}',
+                      http_method='POST', name='addSessionInWishlist')
+    def addSessionInWishlist(self, request):
+        """Register user for selected conference."""
+        return self._wishlistRegistration(request)
 
     @endpoints.method(WISH_GET_REQUEST, BooleanMessage,
                       path='wishlist/{websafeSessionKey}',
                       http_method='DELETE', name='deleteSessionInWishlist')
     def deleteSessionInWishlist(self, request):
-        """Removes the session from the user’s list of sessions they are interested in attending."""
-        retval = None
-        user = endpoints.get_current_user()
+        """Unregister user for selected conference."""
+        return self._wishlistRegistration(request, reg=False)
 
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
+    @endpoints.method(message_types.VoidMessage, SessionForms,
+                      path='getSessionsInWishlist',
+                      http_method='GET', name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Query for all the sessions in a conference that the user is interested in."""
+        prof = self._getProfileFromUser()  # get user Profile
 
-        wssk = request.websafeSessionKey
-        print 'wssk', wssk
-        skey = ndb.Key(urlsafe=wssk).get()
+        ses_keys = [ndb.Key(urlsafe=wssk)
+                    for wssk in prof.sessionKeysToAttend]
+        sessions = ndb.get_multi(ses_keys)
 
-        if not skey:
-            raise endpoints.NotFoundException(
-                'No session found with key: %s' % wssk)
-        ndb.Key(Wishlist, wssk).delete()
+        # get organizers
+        organisers = [ndb.Key(Profile, ses.organizerUserId)
+                      for ses in sessions]
+        profiles = ndb.get_multi(organisers)
 
-        return BooleanMessage(data=retval)
+        # return set of SessionForm objects per Session
+        return SessionForms(items=[self._copySessionToForm(ses)
+                                   for ses in sessions]
+                            )
 
 api = endpoints.api_server([ConferenceApi])  # register API

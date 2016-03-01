@@ -29,6 +29,7 @@ class Profile(ndb.Model):
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
     conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+    sessionKeysToAttend = ndb.StringProperty(repeated=True)
 
 
 class ProfileMiniForm(messages.Message):
@@ -43,7 +44,7 @@ class ProfileForm(messages.Message):
     mainEmail = messages.StringField(2)
     teeShirtSize = messages.EnumField('TeeShirtSize', 3)
     conferenceKeysToAttend = messages.StringField(4, repeated=True)
-    sessionKeysToAttend = messages.StringField(5)
+    sessionKeysToAttend = messages.StringField(5, repeated=True)
 
 
 class BooleanMessage(messages.Message):
@@ -152,23 +153,3 @@ class SessionForm(messages.Message):
 class SessionForms(messages.Message):
     """SessionForms -- multiple Session outbound form message"""
     items = messages.MessageField(SessionForm, 1, repeated=True)
-
-
-class Wishlist(ndb.Model):
-    """Wishlist -- Wishlist object"""
-    sessionName = ndb.StringProperty()
-    typeOfSession = ndb.StringProperty()
-    userId = ndb.StringProperty()
-
-
-class WishlistForm(messages.Message):
-    """WishlistForm -- Wishlist outbound form message"""
-    websafeSessionKey = messages.StringField(1)
-    sessionName = messages.StringField(2)
-    typeOfSession = messages.StringField(3)
-    userId = messages.StringField(4)
-
-
-class WishlistForms(messages.Message):
-    """WishlistForms -- multiple Wishlist outbound form message"""
-    items = messages.MessageField(WishlistForm, 1, repeated=True)
