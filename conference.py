@@ -751,7 +751,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No session found with key: %s' % wssk)
 
-        # register
+        # add
         if reg:
             # check if user already added this session to wishlist otherwise
             # add
@@ -763,7 +763,7 @@ class ConferenceApi(remote.Service):
             prof.sessionKeysToAttend.append(wssk)
             retval = True
 
-        # unregister
+        # remove
         else:
             # check if session is added to wishlist
             if wssk in prof.sessionKeysToAttend:
