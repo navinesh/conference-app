@@ -814,11 +814,11 @@ class ConferenceApi(remote.Service):
         # make a Query object for a kind
         wishlists = Wishlist.query()
 
-        # filter sessions by speaker
+        # filter wishlist by user
         wishlists = wishlists.filter(
             Wishlist.userId == user_id).fetch()
 
-        # return set of SessionForms objects
+        # return set of WishlistForms objects
         return WishlistForms(
             items=[self._copyWishlistToForm(wishlist)
                    for wishlist in wishlists]
