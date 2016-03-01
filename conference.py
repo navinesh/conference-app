@@ -38,6 +38,9 @@ from models import TeeShirtSize
 from models import Session
 from models import SessionForm
 from models import SessionForms
+from models import Wishlist
+from models import WishlistForm
+from models import WishlistForms
 
 from utils import getUserId
 
@@ -105,6 +108,16 @@ SES_POST_REQUEST = endpoints.ResourceContainer(
 SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     speaker=messages.StringField(1),
+)
+
+WISH_POST_REQUEST = endpoints.ResourceContainer(
+    WishlistForm,
+    websafeSessionKey=messages.StringField(1),
+)
+
+WISH_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeSessionKey=messages.StringField(1),
 )
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -722,6 +735,94 @@ class ConferenceApi(remote.Service):
 # by the query
 
 # - - - Wishlist objects - - - - - - - - - - - - - - - - -
+
+    def _copyWishlistToForm(self, wish):
+        """Copy relevant fields from Wishlist to WishlistForm."""
+        wl = WishlistForm()
+        for field in wl.all_fields():
+            if hasattr(wish, field.name):
+                setattr(wl, field.name, getattr(wish, field.name))
+            elif field.name == "websafeSessionKey":
+                setattr(wl, field.name, wish.key.urlsafe())
+        wl.check_initialized()
+        return wl
+
+    def _createWishlistObject(self, request):
+        """Create or update Session object, returning SessionForm/request."""
+        # preload necessary data items
+        user = endpoints.get_current_user()
+
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        user_id = getUserId(user)
+
+        if not request.websafeSessionKey:
+            raise endpoints.BadRequestException(
+                "Session 'sessionKey' field required")
+
+        skey = ndb.Key(urlsafe=request.websafeSessionKey).get()
+
+        if not skey:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % request.sessionKey)
+
+        # since the request and response are of different type
+        # we need to initiate and return wishlistForm
+        wishlist = self._copyWishlistToForm(request)
+
+        # copy SessionForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name)
+                for field in request.all_fields()}
+
+        del data['websafeSessionKey']
+
+        # generate Conference Key based on Conference ID and
+        # websafeConferenceKey key
+        s_key = ndb.Key(Session, request.websafeSessionKey)
+        s_id = Wishlist.allocate_ids(size=1, parent=s_key)[0]
+        w_key = ndb.Key(Wishlist, s_id, parent=s_key)
+        data['key'] = w_key
+        data['sessionName'] = skey.name
+        data['typeOfSession'] = skey.typeOfSession
+        data['userId'] = user_id
+
+        # create Wishlist & return (modified) WishlistForm
+        Wishlist(**data).put()
+
+        return wishlist
+
+    @endpoints.method(WISH_POST_REQUEST, WishlistForm, path='wishlist',
+                      http_method='POST', name='addSessionToWishlist')
+    def addSessionToWishlist(self, request):
+        """Add session to Wishlist."""
+        return self._createWishlistObject(request)
+
+    @endpoints.method(message_types.VoidMessage, WishlistForms,
+                      path='getSessionsInWishlist',
+                      http_method='GET', name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+        """Query for all the sessions in a conference that the user is interested in."""
+        # preload necessary data items
+        user = endpoints.get_current_user()
+
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        user_id = getUserId(user)
+
+        # make a Query object for a kind
+        wishlists = Wishlist.query()
+
+        # filter sessions by speaker
+        wishlists = wishlists.filter(
+            Wishlist.userId == user_id).fetch()
+
+        # return set of SessionForms objects
+        return WishlistForms(
+            items=[self._copyWishlistToForm(wishlist)
+                   for wishlist in wishlists]
+        )
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
