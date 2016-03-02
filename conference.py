@@ -784,13 +784,6 @@ class ConferenceApi(remote.Service):
         """Register user for selected conference."""
         return self._wishlistRegistration(request)
 
-    @endpoints.method(WISH_GET_REQUEST, BooleanMessage,
-                      path='wishlist/{websafeSessionKey}',
-                      http_method='DELETE', name='deleteSessionInWishlist')
-    def deleteSessionInWishlist(self, request):
-        """Unregister user for selected conference."""
-        return self._wishlistRegistration(request, reg=False)
-
     @endpoints.method(message_types.VoidMessage, SessionForms,
                       path='getSessionsInWishlist',
                       http_method='GET', name='getSessionsInWishlist')
@@ -811,5 +804,13 @@ class ConferenceApi(remote.Service):
         return SessionForms(items=[self._copySessionToForm(ses)
                                    for ses in sessions]
                             )
+
+    @endpoints.method(WISH_GET_REQUEST, BooleanMessage,
+                      path='wishlist/{websafeSessionKey}',
+                      http_method='DELETE', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
+        """Unregister user for selected conference."""
+        return self._wishlistRegistration(request, reg=False)
+
 
 api = endpoints.api_server([ConferenceApi])  # register API
