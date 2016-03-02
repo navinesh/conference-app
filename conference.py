@@ -112,6 +112,11 @@ WISH_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1),
 )
+
+WISH_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeSessionKey=messages.StringField(1),
+)
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
@@ -697,6 +702,32 @@ class ConferenceApi(remote.Service):
         # apply filter to sessions using typeOfSession
         sessions = sessions.filter(
             Session.typeOfSession == request.typeOfSession).fetch()
+
+        # return set of SessionForms objects per session
+        return SessionForms(
+            items=[self._copySessionToForm(session)
+                   for session in sessions]
+        )
+
+    @endpoints.method(SES_POST_REQUEST, SessionForms,
+                      path='getConferenceSessionsByCity',
+                      http_method='POST', name='getConferenceSessionsByCity')
+    def getConferenceSessionsByCity(self, request):
+        """ Given a conference, return all sessions in a city (by websafeConferenceKey) """
+        # get Conference object from request
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+
+        if not conf:
+            raise endpointNotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # make a Query object for a kind, filter by ancester
+        sessions = Session.query(ancestor=ndb.Key(
+            Conference, request.websafeConferenceKey))
+
+        # apply filter to sessions using typeOfSession
+        sessions = sessions.filter(
+            Session.city == request.city).fetch()
 
         # return set of SessionForms objects per session
         return SessionForms(
