@@ -753,6 +753,23 @@ class ConferenceApi(remote.Service):
                    for session in sessions]
         )
 
+    @endpoints.method(message_types.VoidMessage, SessionForms,
+                      path='getSessionsCreated',
+                      http_method='POST', name='getSessionsCreated')
+    def getSessionsCreated(self, request):
+        """Return sessions created by user."""
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+        # create ancestor query for all key matches for this user
+        sess = Session.query(ancestor=ndb.Key(Profile, user_id))
+        prof = ndb.Key(Profile, user_id).get()
+        # return set of SessionForm objects per Session
+        return SessionForms(
+            items=[self._copySessionToForm(ses) for ses in sess]
+        )
 
 # TO DO
 # 1. Explain in a couple of paragraphs your design choices for session and
