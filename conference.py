@@ -769,19 +769,21 @@ class ConferenceApi(remote.Service):
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
 
-        myTime = time.clock()
-        print 'myTime', myTime
+        filter_time = datetime.strptime('19:00', "%H:%M").time()
 
         # query for all non-workshop sessions before 7 pm
         sessions = sessions.filter(Session.typeOfSession != 'workshop')
-
-        sessions = sessions.filter(Session.startTime <= filter_time)
         sessions.fetch()
+
+        session_filter = []
+        for session in sessions:
+            if session.startTime <= filter_time:
+                session_filter.append(session)
 
         # return set of SessionForms objects per session
         return SessionForms(
             items=[self._copySessionToForm(session)
-                   for session in sessions]
+                   for session in session_filter]
         )
 # TO DO
 # 1. Explain in a couple of paragraphs your design choices for session and
