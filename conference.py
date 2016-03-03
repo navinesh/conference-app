@@ -750,6 +750,36 @@ class ConferenceApi(remote.Service):
                    for session in sessions]
         )
 
+    @endpoints.method(SES_POST_REQUEST, SessionForms,
+                      path='getConferenceSessionsByQuery/{websafeConferenceKey}',
+                      http_method='POST', name='getConferenceSessionsByQuery')
+    def getConferenceSessionsByQuery(self, request):
+        """ Given a conference, return all non-workshop sessions before 7 pm (by websafeConferenceKey) """
+        # get Conference object from request
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+
+        if not conf:
+            raise endpointNotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # make a Query object for a kind, filter by ancester
+        sessions = Session.query(ancestor=ndb.Key(
+            Conference, request.websafeConferenceKey))
+
+        # apply filter to sessions using typeOfSession
+        sessions = sessions.filter(Session.typeOfSession != "workshop")
+        # sessions = sessions.filter(Session.startTime <= "19:00")
+        sessions.fetch()
+
+        # sessions = sessions.filter(
+        # Session.typeOfSession != 'Workshop' AND Session.startTime <=
+        # 1900).fetch()
+
+        # return set of SessionForms objects per session
+        return SessionForms(
+            items=[self._copySessionToForm(session)
+                   for session in sessions]
+        )
 # TO DO
 # 1. Explain in a couple of paragraphs your design choices for session and
 # speaker implementation.
