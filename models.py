@@ -126,7 +126,7 @@ class StringMessage(messages.Message):
 class Session(ndb.Model):
     """Session -- Session object"""
     organizerUserId = ndb.StringProperty()
-    city = ndb.StringProperty()
+    location = ndb.StringProperty()
     name = ndb.StringProperty(required=True)
     highlights = ndb.StringProperty()
     speaker = ndb.StringProperty(repeated=True)
@@ -139,7 +139,7 @@ class Session(ndb.Model):
 class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
     organizerUserId = messages.StringField(1)
-    city = messages.StringField(2)
+    location = messages.StringField(2)
     name = messages.StringField(3)
     highlights = messages.StringField(4)
     speaker = messages.StringField(5, repeated=True)
