@@ -63,10 +63,6 @@ DEFAULTS = {
     "topics": ["Default", "Topic"],
 }
 
-SES_DEFAULTS = {
-    "city": "Default City",
-}
-
 OPERATORS = {
     'EQ':   '=',
             'GT':   '>',
@@ -110,11 +106,6 @@ SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
 
 WISH_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    websafeSessionKey=messages.StringField(1),
-)
-
-WISH_POST_REQUEST = endpoints.ResourceContainer(
-    SessionForm,
     websafeSessionKey=messages.StringField(1),
 )
 
@@ -716,8 +707,8 @@ class ConferenceApi(remote.Service):
         )
 
     @endpoints.method(SES_POST_REQUEST, SessionForms,
-                      path='getConferenceSessionsByCity/{websafeConferenceKey}',
-                      http_method='POST', name='getConferenceSessionsByCity')
+                      path='getConferenceSessionsByLocation/{websafeConferenceKey}',
+                      http_method='POST', name='getConferenceSessionsByLocation')
     def getConferenceSessionsByLocation(self, request):
         """ Given a conference, return all sessions at a location (by websafeConferenceKey) """
         # get Conference object from request
