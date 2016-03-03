@@ -647,6 +647,9 @@ class ConferenceApi(remote.Service):
         data['key'] = s_key
         data['organizerUserId'] = user_id
 
+        if data['typeOfSession']:
+            data['typeOfSession'] = data['typeOfSession'].lower()
+
         # create Session & return (modified) SessionForm
         Session(**data).put()
 
@@ -766,14 +769,14 @@ class ConferenceApi(remote.Service):
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
 
-        # apply filter to sessions using typeOfSession
-        sessions = sessions.filter(Session.typeOfSession != "workshop")
-        # sessions = sessions.filter(Session.startTime <= "19:00")
-        sessions.fetch()
+        myTime = time.clock()
+        print 'myTime', myTime
 
-        # sessions = sessions.filter(
-        # Session.typeOfSession != 'Workshop' AND Session.startTime <=
-        # 1900).fetch()
+        # query for all non-workshop sessions before 7 pm
+        sessions = sessions.filter(Session.typeOfSession != 'workshop')
+
+        sessions = sessions.filter(Session.startTime <= filter_time)
+        sessions.fetch()
 
         # return set of SessionForms objects per session
         return SessionForms(
