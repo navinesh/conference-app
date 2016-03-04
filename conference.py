@@ -53,6 +53,7 @@ from google.appengine.api import taskqueue
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
+MEMCACHE_FEATURED_SPEAKER_KEY = "FEATURED_SPEAKER"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -650,6 +651,26 @@ class ConferenceApi(remote.Service):
         if data['typeOfSession']:
             data['typeOfSession'] = data['typeOfSession'].lower()
 
+        # make a Query object for a kind, filter by ancester
+        sessions = Session.query(ancestor=ndb.Key(
+            Conference, request.websafeConferenceKey))
+        print 'a', sessions
+        # apply filter to sessions using typeOfSession
+        sessions = sessions.filter(
+            Session.speaker == str(data['speaker'])).fetch()
+        print 'b', sessions
+        print str(data['speaker'])
+        # If there is more than one session by this speaker at this
+        # conference set it in memcache
+        for a in sessions:
+            print a
+        if sessions:
+            featured_speaker = (
+                (sess.speaker for sess in sessions),
+                (sess.name for sess in sessions))
+            memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, featured_speaker)
+
+        print 'we', featured_speaker
         # create Session & return (modified) SessionForm
         Session(**data).put()
 
@@ -753,6 +774,23 @@ class ConferenceApi(remote.Service):
                    for session in sessions]
         )
 
+
+# How would you handle a query for all non-workshop sessions before 7 pm?
+# 1. Filter query by typeOfSession for all non-workshop sessions
+# 2. Filter query by startTime of the session to less than and equal to 7 pm
+
+# What is the problem for implementing this query?
+# The Datastore enforces some restrictions on queries. Using inequalities for
+# multiple properties are currently disallowed.
+# Therefore you cannot filter by typeOfSession and startTime.
+
+# What ways to solve it did you think of?
+# I have created "getConferenceSessionsByQuery" endpoints method for this query.
+# 1. Firstly, I filter typeOfSession for all non-workshop sessions and fetch
+# the results.
+# 2. Then I use a for loop to iterate over the result and create a list of
+# sessions for all the sessions before 7pm
+
     @endpoints.method(SES_POST_REQUEST, SessionForms,
                       path='getConferenceSessionsByQuery/{websafeConferenceKey}',
                       http_method='POST', name='getConferenceSessionsByQuery')
@@ -771,10 +809,11 @@ class ConferenceApi(remote.Service):
 
         filter_time = datetime.strptime('19:00', "%H:%M").time()
 
-        # query for all non-workshop sessions before 7 pm
+        # query for all non-workshop sessions
         sessions = sessions.filter(Session.typeOfSession != 'workshop')
         sessions.fetch()
 
+        # query for all sessions before 7 pm
         session_filter = []
         for session in sessions:
             if session.startTime <= filter_time:
@@ -796,6 +835,19 @@ class ConferenceApi(remote.Service):
 # filters query by speaker
 # returns ConferenceForms object which is a copy of each conference returned
 # by the query
+
+# 2. Describe the purpose of 2 new queries and write the code that
+# would perform them
+
+# The two new queries I have created are "getConferenceSessionsByLocation" and
+# "getSessionsInWishlistByType".
+# "getConferenceSessionsByLocation" is used to get all sessions by area. For eg
+# if a conference is happening in a city we could have multiple sessions and
+# they might be happening at different locations. If you are attending a session
+# at one of the session centers you could query for all the sessions happening
+# near-by and attend if they are of interest to you.
+# "getSessionsInWishlistByType" is used to get all the sessions in whishlist by
+# type. User can query for type of sessions that they are inerested in.
 
 # - - - Wishlist objects - - - - - - - - - - - - - - - - -
 
@@ -894,6 +946,20 @@ class ConferenceApi(remote.Service):
     def deleteSessionInWishlist(self, request):
         """Remove session from users' wishlist."""
         return self._wishlistRegistration(request, reg=False)
+
+
+# - - - Task 4 - - - - - - - - - - - - - - - - - - - -
+
+    @endpoints.method(message_types.VoidMessage, StringMessage,
+                      path='session/getFeaturedSpeaker',
+                      http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Return speaker and session names from memcache."""
+        # return an existing announcement from Memcache or an empty string.
+        featured_speaker = memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY)
+        if not featured_speaker:
+            featured_speaker = ""
+        return StringMessage(data=featured_speaker)
 
 
 api = endpoints.api_server([ConferenceApi])  # register API
