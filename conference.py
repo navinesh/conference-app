@@ -571,6 +571,31 @@ class ConferenceApi(remote.Service):
         return StringMessage(data=announcement)
 
 
+# - - - Featured Speaker - - - - - - - - - - - - - - - -
+    @staticmethod
+    def _cacheFeaturedSpeaker():
+        """Create featured speaker & assign to memcache."""
+
+        # make a Query object for a kind, filter by ancester
+        sessions = Session.query(ancestor=ndb.Key(
+            Conference, request.websafeConferenceKey))
+
+        speakers = []
+        if sessions:
+            for x in sessions:
+                if x.speaker == speaker:
+        #            speakers.append(x.speaker)
+        #            speakers.append(x.name)
+                    featured_speaker = '%s %s' % (speaker,
+                        'Featured speaker',
+                        ', '.join(x.name))
+                    memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, featured_speaker)
+                else:
+                    featured_speaker = ""
+                    memcache.delete(MEMCACHE_FEATURED_SPEAKER_KEY)
+
+        return featured_speaker
+
 # - - - Session objects - - - - - - - - - - - - - - - - -
 
     def _copySessionToForm(self, ses):
@@ -651,29 +676,15 @@ class ConferenceApi(remote.Service):
         if data['typeOfSession']:
             data['typeOfSession'] = data['typeOfSession'].lower()
 
-        # make a Query object for a kind, filter by ancester
-        sessions = Session.query(ancestor=ndb.Key(
-            Conference, request.websafeConferenceKey))
-        print 'a', sessions
-        # apply filter to sessions using typeOfSession
-        sessions = sessions.filter(
-            Session.speaker == str(data['speaker'])).fetch()
-        print 'b', sessions
-        print str(data['speaker'])
-        # If there is more than one session by this speaker at this
-        # conference set it in memcache
-        for a in sessions:
-            print a
-        if sessions:
-            featured_speaker = (
-                (sess.speaker for sess in sessions),
-                (sess.name for sess in sessions))
-            memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, featured_speaker)
+        taskqueue.add(
+                     params={'websafeConferenceKey': request.websafeConferenceKey,
+                     'speaker': data['speaker']},
+                     url='/tasks/get_featured_speaker',
+                 )
 
-        print 'we', featured_speaker
-        # create Session & return (modified) SessionForm
+        # save form data to datastore
         Session(**data).put()
-
+        # create Session & return (modified) SessionForm
         return session
 
     @endpoints.method(SES_POST_REQUEST, SessionForm, path='session',
@@ -807,13 +818,13 @@ class ConferenceApi(remote.Service):
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
 
-        filter_time = datetime.strptime('19:00', "%H:%M").time()
-
         # query for all non-workshop sessions
         sessions = sessions.filter(Session.typeOfSession != 'workshop')
         sessions.fetch()
 
         # query for all sessions before 7 pm
+        filter_time = datetime.strptime('19:00', "%H:%M").time()
+
         session_filter = []
         for session in sessions:
             if session.startTime <= filter_time:
