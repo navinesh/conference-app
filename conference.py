@@ -576,16 +576,14 @@ class ConferenceApi(remote.Service):
     def _cacheFeaturedSpeaker():
         """Create featured speaker & assign to memcache."""
 
+        print 'sessions', request.websafeConferenceKey
         # make a Query object for a kind, filter by ancester
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
 
-        speakers = []
         if sessions:
             for x in sessions:
                 if x.speaker == speaker:
-        #            speakers.append(x.speaker)
-        #            speakers.append(x.name)
                     featured_speaker = '%s %s' % (speaker,
                         'Featured speaker',
                         ', '.join(x.name))
@@ -676,14 +674,15 @@ class ConferenceApi(remote.Service):
         if data['typeOfSession']:
             data['typeOfSession'] = data['typeOfSession'].lower()
 
+        # save form data to datastore
+        Session(**data).put()
+
         taskqueue.add(
                      params={'websafeConferenceKey': request.websafeConferenceKey,
                      'speaker': data['speaker']},
                      url='/tasks/get_featured_speaker',
                  )
 
-        # save form data to datastore
-        Session(**data).put()
         # create Session & return (modified) SessionForm
         return session
 
@@ -959,7 +958,7 @@ class ConferenceApi(remote.Service):
         return self._wishlistRegistration(request, reg=False)
 
 
-# - - - Task 4 - - - - - - - - - - - - - - - - - - - -
+# - - - Featured Speaker object - - - - - - - - - - - - - - - - - - - -
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
                       path='session/getFeaturedSpeaker',
