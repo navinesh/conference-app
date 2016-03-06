@@ -577,6 +577,7 @@ class ConferenceApi(remote.Service):
         # make a Query object for a kind, filter by ancester
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
+
         # check if sessions exists given websafeConferenceKey
         if sessions:
             for x in sessions:
@@ -682,7 +683,8 @@ class ConferenceApi(remote.Service):
         taskqueue.add(
                      params={'websafeConferenceKey': request.websafeConferenceKey,
                      'speaker': data['speaker']},
-                     url='/tasks/get_featured_speaker',
+                     url='/tasks/set_featured_speaker',
+                     method='GET',
                  )
 
         # create Session & return (modified) SessionForm

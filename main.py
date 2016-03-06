@@ -34,7 +34,7 @@ class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
         ConferenceApi._cacheFeaturedSpeaker(
             self.request.get('websafeConferenceKey'),
             self.request.get('speaker')
-        )
+            )
 
 
 class SendConfirmationEmailHandler(webapp2.RequestHandler):
