@@ -281,7 +281,7 @@ class ConferenceApi(remote.Service):
         user_id = getUserId(user)
         # create ancestor query for all key matches for this user
         confs = Conference.query(ancestor=ndb.Key(Profile, user_id))
-        print 'confs', confs
+
         prof = ndb.Key(Profile, user_id).get()
         # return set of ConferenceForm objects per Conference
         return ConferenceForms(
@@ -448,10 +448,9 @@ class ConferenceApi(remote.Service):
         retval = None
         prof = self._getProfileFromUser()  # get user Profile
 
+        wsck = request.websafeConferenceKey
         # check if conf exists given websafeConfKey
         # get conference; check that it exists
-        wsck = request.websafeConferenceKey
-
         conf = ndb.Key(urlsafe=wsck).get()
         if not conf:
             raise endpoints.NotFoundException(
@@ -575,20 +574,23 @@ class ConferenceApi(remote.Service):
     @staticmethod
     def _cacheFeaturedSpeaker():
         """Create featured speaker & assign to memcache."""
-
-        print 'sessions', request.websafeConferenceKey
         # make a Query object for a kind, filter by ancester
         sessions = Session.query(ancestor=ndb.Key(
             Conference, request.websafeConferenceKey))
-
+        # check if sessions exists given websafeConferenceKey
         if sessions:
             for x in sessions:
+                # if there is more than one session by this speaker at this
+                # conference, add a new Memcache entry that features the
+                # speaker and session names
                 if x.speaker == speaker:
                     featured_speaker = '%s %s' % (speaker,
                         'Featured speaker',
                         ', '.join(x.name))
                     memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, featured_speaker)
                 else:
+                    # if there is no more than one session by this speaker at
+                    # this conference, delete the Memcache entry
                     featured_speaker = ""
                     memcache.delete(MEMCACHE_FEATURED_SPEAKER_KEY)
 
@@ -617,22 +619,22 @@ class ConferenceApi(remote.Service):
         """Create or update Session object, returning SessionForm/request."""
         # preload necessary data items
         user = endpoints.get_current_user()
-
+        # make sure user is authenticated
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
 
         user_id = getUserId(user)
-
+        # make sure session name is entered
         if not request.name:
             raise endpoints.BadRequestException(
                 "Session name field required")
-
+        # make sure websafeConferenceKey is entered
         if not request.websafeConferenceKey:
             raise endpoints.BadRequestException(
                 "Session 'websafeConferenceKey' field required")
 
         conf_key = ndb.Key(urlsafe=request.websafeConferenceKey).get()
-
+        # check if conference exists given websafeConferenceKey
         if not conf_key:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
@@ -643,8 +645,8 @@ class ConferenceApi(remote.Service):
                 'Only conference organizer can add sessions.')
 
         # since we use SES_POST_REQUEST, which is a container (combination message)
-        # we need to initiate and return SessionForm, unlike createConference
-        # where request and response are of the same type
+        # we need to initiate and return SessionForm, as the request and
+        # response are of different type
         session = self._copySessionToForm(request)
 
         # copy SessionForm/ProtoRPC Message into dict
@@ -670,7 +672,7 @@ class ConferenceApi(remote.Service):
         s_key = ndb.Key(Session, s_id, parent=c_key)
         data['key'] = s_key
         data['organizerUserId'] = user_id
-
+        # set typeOfSession to lowser case
         if data['typeOfSession']:
             data['typeOfSession'] = data['typeOfSession'].lower()
 
