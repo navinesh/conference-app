@@ -35,7 +35,7 @@ Session entities are created as a child of Conference entities. Each Conference
 entity has a ancestor relationship with session entities.
 
 #Speaker
-Speakers are defined as a string in the Session model.
+Speakers are created as entities.
 
 #Task 3:
 # Describe the purpose of 2 new queries and write the code that would perform them
