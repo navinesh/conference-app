@@ -24,7 +24,7 @@ App Engine application - a cloud-based API server to support a provided conferen
 1. Deploy your application.
 
 ##Task 1
-##Explain in a couple of paragraphs your design choices for session and speaker implementation.
+###Explain in a couple of paragraphs your design choices for session and speaker implementation.
 
 ##Sessions
 Session model object is created to represent session entry in the datastore.
@@ -36,7 +36,7 @@ entity has a ancestor relationship with session entities.
 ##Speaker
 Speakers are created as entities.
 
-##Task 3:
+##Task 3
 ##Describe the purpose of 2 new queries and write the code that would perform them
 The two new queries I have created are "getConferenceSessionsByLocation" and
 "getSessionsInWishlistByType". "getConferenceSessionsByLocation" is used to
