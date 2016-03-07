@@ -1,4 +1,4 @@
-App Engine application for the Udacity training course.
+App Engine application - a cloud-based API server to support a provided conference organization application that exists on the web.
 
 ## Products
 - [App Engine][1]
@@ -23,6 +23,47 @@ App Engine application for the Udacity training course.
 1. (Optional) Generate your client library(ies) with [the endpoints tool][6].
 1. Deploy your application.
 
+#Task 1
+#Explain in a couple of paragraphs your design choices for session and
+#speaker implementation.
+
+#Sessions
+Session model object is created to represent session entry in the datastore.
+SessionForm message object is created to handle outbound form message (user input).
+
+Session entities are created as a child of Conference entities. Each Conference
+entity has a ancestor relationship with session entities.
+
+#Speaker
+Speakers are defined as a string in the Session model.
+
+#Task 3:
+# Describe the purpose of 2 new queries and write the code that would perform them
+The two new queries I have created are "getConferenceSessionsByLocation" and
+"getSessionsInWishlistByType". "getConferenceSessionsByLocation" is used to
+get all sessions by area. For eg if a conference is happening in a city we
+could have multiple sessions and they might be happening at different
+locations. If you are attending a session at one of the session centers you
+could query for all the sessions happening near-by and attend if they are
+of interest to you. "getSessionsInWishlistByType" is used to get all the
+sessions in whishlist by type. User can query for type of sessions that
+they are interested in.
+
+# How would you handle a query for all non-workshop sessions before 7 pm?
+1. Filter query by typeOfSession for all non-workshop sessions
+2. Filter query by startTime of the session to less than and equal to 7 pm
+
+# What is the problem for implementing this query?
+The Datastore enforces some restrictions on queries. Using inequalities for
+multiple properties are currently disallowed. Therefore you cannot filter
+by typeOfSession and startTime.
+
+# What ways to solve it did you think of?
+I have created "getConferenceSessionsByQuery" endpoints method for this query.
+1. Firstly, I filter typeOfSession for all non-workshop sessions and fetch
+the results.
+2. Then I use a for loop to iterate over the result and create a list of
+sessions for all the sessions before 7pm
 
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
