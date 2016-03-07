@@ -62,7 +62,6 @@ I have created "getConferenceSessionsByQuery" endpoints method for this query.
 
 1. Firstly, I filter typeOfSession for all non-workshop sessions and fetch
 the results.
-
 2. Then I use a for loop to iterate over the result and create a list of
 sessions for all the sessions before 7pm
 
