@@ -6,6 +6,9 @@ threadsafe: yes
 
 handlers:       # static then dynamic
 
+- url: /tasks/get_featured_speaker
+  script: main.app
+  
 - url: /crons/set_announcement
   script: main.app
   login: admin
@@ -42,11 +45,6 @@ handlers:       # static then dynamic
   script: conference.api
   secure: always
 
-- url: /tasks/get_featured_speaker
-  script: main.app
-
-- url: /tasks/set_featured_speaker
-  script: main.app
 
 libraries:
 
