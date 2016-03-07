@@ -23,22 +23,21 @@ App Engine application - a cloud-based API server to support a provided conferen
 1. (Optional) Generate your client library(ies) with [the endpoints tool][6].
 1. Deploy your application.
 
-#Task 1
-#Explain in a couple of paragraphs your design choices for session and
-#speaker implementation.
+##Task 1
+##Explain in a couple of paragraphs your design choices for session and speaker implementation.
 
-#Sessions
+##Sessions
 Session model object is created to represent session entry in the datastore.
 SessionForm message object is created to handle outbound form message (user input).
 
 Session entities are created as a child of Conference entities. Each Conference
 entity has a ancestor relationship with session entities.
 
-#Speaker
+##Speaker
 Speakers are created as entities.
 
-#Task 3:
-# Describe the purpose of 2 new queries and write the code that would perform them
+##Task 3:
+##Describe the purpose of 2 new queries and write the code that would perform them
 The two new queries I have created are "getConferenceSessionsByLocation" and
 "getSessionsInWishlistByType". "getConferenceSessionsByLocation" is used to
 get all sessions by area. For eg if a conference is happening in a city we
@@ -49,16 +48,16 @@ of interest to you. "getSessionsInWishlistByType" is used to get all the
 sessions in whishlist by type. User can query for type of sessions that
 they are interested in.
 
-# How would you handle a query for all non-workshop sessions before 7 pm?
+##How would you handle a query for all non-workshop sessions before 7 pm?
 1. Filter query by typeOfSession for all non-workshop sessions
 2. Filter query by startTime of the session to less than and equal to 7 pm
 
-# What is the problem for implementing this query?
+##What is the problem for implementing this query?
 The Datastore enforces some restrictions on queries. Using inequalities for
 multiple properties are currently disallowed. Therefore you cannot filter
 by typeOfSession and startTime.
 
-# What ways to solve it did you think of?
+##What ways to solve it did you think of?
 I have created "getConferenceSessionsByQuery" endpoints method for this query.
 1. Firstly, I filter typeOfSession for all non-workshop sessions and fetch
 the results.
